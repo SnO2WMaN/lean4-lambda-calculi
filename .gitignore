@@ -1,0 +1,6 @@
+# Lean
+/build
+/lake-packages/*
+
+# VSCode
+.vscode/settings.json
