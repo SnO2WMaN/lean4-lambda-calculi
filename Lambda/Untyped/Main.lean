@@ -7,7 +7,8 @@ def pickFreshName (ctx : Context) (x : String) : Context × String :=
   | none => (#[x] ++ ctx, x)
   | some _ => let fn := x ++ "'"; (#[fn] ++ ctx, fn)
 
-#eval pickFreshName #["x", "y", "z"] "x"
+#eval pickFreshName #[] "x"
+#eval pickFreshName #["x"] "x"
 
 end Context
 
@@ -22,14 +23,34 @@ open Term
 
 def toString : Term → String
   | Var k => s!"{k}"
-  | Abs x t => "λ" ++ x ++ "." ++ toString t
+  | Abs _ t => "(λ." ++ toString t ++ ")"
   | App t₁ t₂ => "(" ++ toString t₁ ++ " " ++ toString t₂ ++ ")"
 
 instance : ToString Term := ⟨toString⟩
 
 def isValue : Term → Bool
+  | .Var _ => true
   | Abs _ _ => true
   | _ => false
+
+def shift (c d : Nat) (t : Term) : Term :=
+  match t with
+  | Var k => if k < c then Var k else Var (k + d)
+  | Abs x t => Abs x (shift (c + 1) d t)
+  | App t₁ t₂ => App (shift c d t₁) (shift c d t₂)
+
+def shift0 := shift 0
+
+#eval (shift0 1 (Var 1))
+#eval (shift0 1 (shift0 1 (Var 1)))
+
+def subst (j : Nat) (s : Term) (t : Term) :=
+  match t with
+  | Var k => if k == j then s else Var k
+  | Abs x t => Abs x (subst (j + 1) (shift0 1 s) t)
+  | App t₁ t₂ => App (subst j s t₁) (subst j s t₂)
+
+#eval (subst 0 (Var 1) (App (Var 0) (Abs "α" (Abs "β" (App (Var 0) (Var 2))))))
 
 def print (ctx : Context) : Term → Option String
   | Var k => ctx.get? k
@@ -42,25 +63,12 @@ def print (ctx : Context) : Term → Option String
     let s₂ <- print ctx t₂
     return "(" ++ s₁ ++ " " ++ s₂ ++ ")"
 
-def shift (c d : Nat) (t : Term) : Term :=
-  match t with
-  | Var k => if k < c then Var k else Var (k + d)
-  | Abs x t => Abs x (shift (c + 1) d t)
-  | App t₁ t₂ => App (shift c d t₁) (shift c d t₂)
+#eval print #["x", "y"] (App (Var 1) (Abs "α" (Abs "β" (App (Var 0) (Var 3)))))
+#eval print #["x", "y"] (subst 0 (Var 1) (App (Var 0) (Abs "α" (Abs "β" (App (Var 0) (Var 2))))))
+#eval (print #["x", "y"] (App (Var 1) (Abs "α" (Abs "β" (App (Var 0) (Var 3)))))) == (print #["x", "y"] (subst 0 (Var 1) (App (Var 0) (Abs "α" (Abs "β" (App (Var 0) (Var 2)))))))
 
-def shift0 := shift 0
-
-#eval (shift0 2 (App (Var 0) (Abs "a" (Abs "b" (App (Var 0) (Var 2))))))
-
-def subst (j : Nat) (s : Term) (t : Term) :=
-  match t with
-  | Var k => if k == j then s else Var k
-  | Abs x t => Abs x (subst (j + 1) (shift0 1 s) t)
-  | App t₁ t₂ => App (subst j s t₁) (subst j s t₂)
-
-
-#eval print #["a", "b"] (App (Var 0) (Abs "a" (Abs "b" (App (Var 0) (Var 2)))))
-#eval print #["a", "b"] (subst 0 (Var 1) (App (Var 0) (Abs "a" (Abs "b" (App (Var 0) (Var 2))))))
+#eval App (App (Abs "α" (Abs "β" (App (Var 0) (Var 1)))) (Var 0)) (Abs "α" (Var 0))
+#eval print #["z"] (App (App (Abs "α" (Abs "β" (App (Var 0) (Var 1)))) (Var 0)) (Abs "α" (Var 0)))
 
 end Term
 
@@ -82,9 +90,12 @@ def simpl (t : Term) : Term :=
   | some t' => simpl t'
   | none => t
 
-#eval print #[] (App (Abs "x" (Var 0)) (Abs "x" (Var 0)))
-#eval print #[] (simpl (App (Abs "x" (Var 0)) (Abs "x" (Var 0))))
-#eval print #["a"] (App (Abs "x" (Var 1)) (Abs "x" (Var 0)))
-#eval print #["a"] (simpl (App (Abs "x" (Var 1)) (Abs "x" (Var 0))))
+#eval print #["z"] (App (Abs "α" (Abs "β" (App (Var 0) (Var 1)))) (Var 0))
+#eval simpl (App (Abs "α" (Abs "β" (App (Var 0) (Var 1)))) (Var 0))
+#eval print #["z"] (simpl (App (Abs "α" (Abs "β" (App (Var 0) (Var 1)))) (Var 0)))
+
+#eval simpl (App (App (Abs "α" (Abs "β" (App (Var 0) (Var 1)))) (Var 0)) (Abs "α" (Var 0)))
+
+#eval print #["z"] (simpl (App (App (Abs "α" (Abs "β" (App (Var 0) (Var 1)))) (Var 0)) (Abs "α" (Var 0))))
 
 end Smallstep
