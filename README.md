@@ -4,6 +4,7 @@
 
 - [Untyped](./Lambda/Untyped)
   - `[1]`: Chapter 5~7
+  - _Status_: Wrong implementation
 
 ## References
 
